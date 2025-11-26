@@ -961,12 +961,29 @@ FormatHeader(char *buffer, Page page, BlockNumber blkno, bool isToast)
 
 			if (!isToast || verbose)
 			{
-				printf("%s BTree Meta Data:  Magic (0x%08x)   Version (%u)\n",
-						indent, btpMeta->btm_magic, btpMeta->btm_version);
+				printf("%s BTree Meta Data:  Magic (0x%08x) (%s)   Version (%u) (%s)\n",
+						indent, btpMeta->btm_magic, btpMeta->btm_magic == BTREE_MAGIC ? "CORRECT" : "INCORRECT",
+						btpMeta->btm_version, btpMeta->btm_version <= BTREE_VERSION ? "CORRECT" : "INCORRECT");
 				printf("%s                   Root:     Block (%u)  Level (%u)\n",
 						indent, btpMeta->btm_root, btpMeta->btm_level);
-				printf("%s                   FastRoot: Block (%u)  Level (%u)\n\n",
+				printf("%s                   FastRoot: Block (%u)  Level (%u)\n",
 					indent, btpMeta->btm_fastroot, btpMeta->btm_fastlevel);
+#if PG_VERSION_NUM >= 140000
+				printf("%s                   Last cleanup num delpages: (%u)\n",
+					indent, btpMeta->btm_last_cleanup_num_delpages);
+#elif PG_VERSION_NUM >= 110000
+				printf("%s                   Oldest btpo_xact: (%d)\n",
+					indent, btpMeta->btm_oldest_btpo_xact);
+#endif
+#if PG_VERSION_NUM >= 110000
+				printf("%s                   Last cleanup num heap tuples: (%lf)\n",
+					indent, (double) btpMeta->btm_last_cleanup_num_heap_tuples);
+#endif
+#if PG_VERSION_NUM >= 130000
+				printf("%s                   Allequalimage: (%d)\n",
+					indent, btpMeta->btm_allequalimage);
+#endif
+				printf("\n");
 			}
 			headerBytes += sizeof(BTMetaPageData);
 		}
@@ -975,8 +992,8 @@ FormatHeader(char *buffer, Page page, BlockNumber blkno, bool isToast)
 			GinMetaPageData *gpMeta = GinPageGetMeta(buffer);
 			if (!isToast || verbose)
 			{
-				printf("%s GIN Meta Data:           Version (%u)\n",
-					indent, gpMeta->ginVersion);
+				printf("%s GIN Meta Data:           Version (%u) (%s)\n",
+					indent, gpMeta->ginVersion, gpMeta->ginVersion <= GIN_CURRENT_VERSION ? "CORRECT" : "INCORRECT");
 				printf("%s Pending list:            Head:    (%u)  Tail:    (%u)  Tail Free Size:    (%u)\n",
 						indent, gpMeta->head, gpMeta->tail, gpMeta->tailFreeSize);
 				printf("%s                          Num of Pending Pages:    (%u)  Num of Pending Heap Tuples:    (%" PRIu64 ")\n",
