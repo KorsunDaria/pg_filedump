@@ -1249,9 +1249,9 @@ FormatGinBlock(char *buffer,
 			GinPostingList *seg = GinDataLeafPageGetPostingList(page);
 			int				plist_idx = 1;
 			Size			len = GinDataLeafPageGetPostingListSize(page);
-			Pointer			endptr = ((Pointer) seg) + len;
+			char		   *endptr = ((char *) seg) + len;
 			ItemPointer		cur;
-			while ((Pointer) seg < endptr)
+			while ((char *) seg < endptr)
 			{
 				int				item_idx = 1;
 				uint64			val;
@@ -1786,7 +1786,11 @@ FormatItem(char *buffer, unsigned int numBytes, unsigned int startIndex,
 			unsigned int infoMask2;
 			int			localNatts;
 			unsigned int localHoff;
-			bits8	   *localBits;
+#if PG_VERSION_NUM >= 190000
+		uint8	   *localBits;
+#else
+		bits8	   *localBits;
+#endif
 			unsigned int localBitOffset;
 
 			HeapTupleHeader htup = (HeapTupleHeader) (&buffer[startIndex]);
@@ -2031,10 +2035,20 @@ FormatSpecial(char *buffer)
 				if (strlen(flagString))
 					flagString[strlen(flagString) - 1] = '\0';
 				printf(" GIST Index Section:\n"
+#if PG_VERSION_NUM >= 140000
+					   "  NSN: %X/%X\n"
+#else
 					   "  NSN: 0x%08x/0x%08x\n"
+#endif
 					   "  RightLink: %d\n"
 					   "  Flags: 0x%08x (%s)\n\n",
+#if PG_VERSION_NUM >= 190000
+					   LSN_FORMAT_ARGS(PageXLogRecPtrGet(&gistSection->nsn)),
+#elif PG_VERSION_NUM >= 140000
+					   LSN_FORMAT_ARGS(PageXLogRecPtrGet(gistSection->nsn)),
+#else
 					   gistSection->nsn.xlogid, gistSection->nsn.xrecoff,
+#endif
 					   gistSection->rightlink,
 					   gistSection->flags, flagString);
 			}
@@ -2262,7 +2276,7 @@ FormatControl(char *buffer)
 			   "             |-      Next XID: %u/%u\n"
 			   "             |-      Next OID: %u\n"
 			   "             |-    Next Multi: %u\n"
-			   "             |- Next MultiOff: %u\n"
+			   "             |- Next MultiOff: " UINT64_FORMAT "\n"
 			   "             |-          Time: %s"
 			   "       Minimum Recovery Point: Log File (%u) Offset (0x%08x)\n"
 			   "       Maximum Data Alignment: %u\n"
@@ -2299,7 +2313,7 @@ FormatControl(char *buffer)
 			   XidFromFullTransactionId(checkPoint->nextXid),
 #endif
 			   checkPoint->nextOid,
-			   checkPoint->nextMulti, checkPoint->nextMultiOffset,
+			   checkPoint->nextMulti, (uint64) checkPoint->nextMultiOffset,
 			   ctime(&cp_time),
 			   (uint32) (controlData->minRecoveryPoint >> 32), (uint32) controlData->minRecoveryPoint,
 			   controlData->maxAlign,
