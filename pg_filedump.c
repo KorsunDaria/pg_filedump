@@ -35,6 +35,9 @@
 #include "decode.h"
 #include <inttypes.h>
 
+#include "pg_fsm.h"
+#include "pg_vm.h"
+
 /*
  * Global variables for ease of use mostly
  */
@@ -214,6 +217,8 @@ DisplayOptions(unsigned int validOptions)
 		 "Additional functions:\n"
 		 "  -m  Interpret file as pg_filenode.map file and print contents (all\n"
 		 "      other options will be ignored)\n" 
+		 "  -F  Interpret file as FSM (Free Space Map) file\n" 
+         "  -V  Interpret file as VM (Visibility Map) file\n"
 		 "\nReport bugs to <pgsql-bugs@postgresql.org>\n");
 }
 
@@ -2590,11 +2595,46 @@ PrintRelMappings(void)
 	return 1;
 }
 
+static int
+DumpFsmVmFile(int argc, char **argv, int flag_index, int (*module_main) (int, char **))
+{
+
+	int			i;
+	int			result;
+	int			new_argc;
+
+	new_argc = 0;
+	char	  **new_argv = malloc(argc * sizeof(char *));
+
+	for (i = 0; i < argc; i++)
+	{
+		if (i != flag_index)
+		{
+			new_argv[new_argc++] = argv[i];
+		}
+	}
+
+	result = module_main(new_argc, new_argv);
+	free(new_argv);
+	return result;
+}
+
 /* Consume the options and iterate through the given file, formatting as
  * requested. */
 int
 main(int argv, char **argc)
 {
+	for (int i = 1; i < argv; i++)
+    {
+        if (strcmp(argc[i], "-F") == 0)
+        {
+            return DumpFsmVmFile(argv, argc, i, fsm_main);
+        }
+        if (strcmp(argc[i], "-V") == 0)
+        {
+            return DumpFsmVmFile(argv, argc, i, vm_main);
+        }
+    }
 	/* If there is a parameter list, validate the options */
 	unsigned int validOptions;
 
