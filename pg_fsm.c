@@ -586,20 +586,20 @@ print_header_line(FILE *out, const char *indent,
 				  const FsmPageInfo * page_info)
 {
 	PageHeaderData header;
-	unsigned long long lsn;
+	unsigned long long lsn = 0;
 
 	header = page_info->header;
 
 	fprintf(out, "%s  header:", indent);
 
-	if (PG_VERSION_NUM >= 190000)
-	{
+#if PG_VERSION_NUM >= 190000
+		lsn = (unsigned long long) PageXLogRecPtrGet(&header.pd_lsn);
+#elif PG_VERSION_NUM >= 140000
 		lsn = (unsigned long long) PageXLogRecPtrGet(header.pd_lsn);
-	}
-	else if (PG_VERSION_NUM >= 140000)
-	{
-		lsn = (unsigned long long) PageXLogRecPtrGet(header.pd_lsn);
-	}
+#else
+		lsn = ((unsigned long long) header.pd_lsn.xlogid << 32) | header.pd_lsn.xrecoff;
+#endif
+
 	fprintf(out, " pd_lsn=%llX", lsn);
 
 	fprintf(out, " pd_checksum=%u", header.pd_checksum);
@@ -1537,19 +1537,20 @@ static int
 header_changed(const PageHeaderData *old_hdr,
 			   const PageHeaderData *new_hdr, int structural)
 {
-	unsigned long long old_lsn;
-	unsigned long long new_lsn;
+	unsigned long long old_lsn = 0;
+	unsigned long long new_lsn = 0;
 
-	if (PG_VERSION_NUM >= 190000)
-	{
+#if PG_VERSION_NUM >= 190000
+		old_lsn = (unsigned long long) PageXLogRecPtrGet(&old_hdr->pd_lsn);
+		new_lsn = (unsigned long long) PageXLogRecPtrGet(&new_hdr->pd_lsn);
+#elif PG_VERSION_NUM >= 140000
 		old_lsn = (unsigned long long) PageXLogRecPtrGet(old_hdr->pd_lsn);
 		new_lsn = (unsigned long long) PageXLogRecPtrGet(new_hdr->pd_lsn);
-	}
-	else if (PG_VERSION_NUM >= 140000)
-	{
-		old_lsn = (unsigned long long) PageXLogRecPtrGet(old_hdr->pd_lsn);
-		new_lsn = (unsigned long long) PageXLogRecPtrGet(new_hdr->pd_lsn);
-	}
+#else 
+		old_lsn = ((unsigned long long) old_hdr->pd_lsn.xlogid << 32) | old_hdr->pd_lsn.xrecoff;
+		new_lsn = ((unsigned long long) new_hdr->pd_lsn.xlogid << 32) | new_hdr->pd_lsn.xrecoff;
+#endif
+
 	return structural ||
 		old_lsn != new_lsn ||
 		old_hdr->pd_checksum != new_hdr->pd_checksum;

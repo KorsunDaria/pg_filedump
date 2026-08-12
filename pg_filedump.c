@@ -2602,9 +2602,9 @@ DumpFsmVmFile(int argc, char **argv, int flag_index, int (*module_main) (int, ch
 	int			i;
 	int			result;
 	int			new_argc;
-
-	new_argc = 0;
 	char	  **new_argv = malloc(argc * sizeof(char *));
+	
+	new_argc = 0;
 
 	for (i = 0; i < argc; i++)
 	{
@@ -2624,6 +2624,9 @@ DumpFsmVmFile(int argc, char **argv, int flag_index, int (*module_main) (int, ch
 int
 main(int argv, char **argc)
 {
+	/* If there is a parameter list, validate the options */
+	unsigned int validOptions;
+
 	for (int i = 1; i < argv; i++)
     {
         if (strcmp(argc[i], "-F") == 0)
@@ -2635,8 +2638,6 @@ main(int argv, char **argc)
             return DumpFsmVmFile(argv, argc, i, vm_main);
         }
     }
-	/* If there is a parameter list, validate the options */
-	unsigned int validOptions;
 
 	validOptions = (argv < 2) ? OPT_RC_COPYRIGHT : ConsumeOptions(argv, argc);
 

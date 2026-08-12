@@ -13,7 +13,11 @@
  */
 #include "postgres.h"
 
+#if PG_VERSION_NUM >= 130000
 #include "access/visibilitymapdefs.h"
+#endif
+#include "access/visibilitymap.h"
+
 #include "storage/bufpage.h"
 
 #include "pg_vm.h"
@@ -438,18 +442,17 @@ static void
 print_header_line(FILE *out, const VmPageInfo * page_info)
 {
 	PageHeaderData header;
-	unsigned long long lsn;
+	unsigned long long lsn = 0;
 
 	header = page_info->header;
 
-	if (PG_VERSION_NUM >= 190000)
-	{
+#if PG_VERSION_NUM >= 190000
+		lsn = (unsigned long long) PageXLogRecPtrGet(&header.pd_lsn);
+#elif PG_VERSION_NUM >= 140000
 		lsn = (unsigned long long) PageXLogRecPtrGet(header.pd_lsn);
-	}
-	else if (PG_VERSION_NUM >= 140000)
-	{
-		lsn = (unsigned long long) PageXLogRecPtrGet(header.pd_lsn);
-	}
+#else 
+		lsn=((unsigned long long) header.pd_lsn.xlogid << 32) | header.pd_lsn.xrecoff;
+#endif
 
 	fprintf(
 			out,
